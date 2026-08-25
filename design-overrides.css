@@ -1,0 +1,62 @@
+/* Design overrides: smooth motion, background utilities, and UI polish */
+:root{
+  --ui-radius:12px;
+  --card-elev: 0 6px 18px rgba(2,6,10,0.45);
+}
+
+/* Smooth global transitions */
+*{transition:color 180ms var(--ease-quick, cubic-bezier(.2,.9,.3,1)),background-color 220ms var(--ease-quick);}
+
+/* Buttons & interactive elements */
+.button{transition:transform 200ms var(--ease-quick),filter 160ms var(--ease-quick);}
+.button:active{transform:translateY(1px) scale(.996)}
+.button.primary:hover{filter:brightness(1.08);transform:translateY(-2px)}
+
+/* Hero background helpers — apply classes to body for quick theming */
+.bg-aurora{--bg-layer-1: radial-gradient(900px 420px at 85% 8%, rgba(201,243,29,0.12), transparent 25%);}
+.bg-sunset{--bg-layer-2: radial-gradient(650px 320px at 10% 80%, rgba(255,107,53,0.10), transparent 30%);}
+.bg-pattern{--bg-image: url('assets/pattern.png'); --bg-overlay-opacity:0.06}
+
+/* Gallery card polish */
+.photo-card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(0,0,0,0.02));border-radius:var(--ui-radius);overflow:hidden;box-shadow:var(--card-elev);transition:transform 220ms var(--ease-medium),box-shadow 220ms var(--ease-medium)}
+.photo-card img{display:block;width:100%;height:auto;max-height:220px;object-fit:cover;transition:transform 320ms var(--ease-medium),filter 220ms var(--ease-medium)}
+.photo-card:hover{transform:translateY(-6px);box-shadow:0 12px 30px rgba(2,6,10,0.6)}
+.photo-card:hover img{transform:scale(1.03);filter:brightness(1.02)}
+
+/* Empty state and lightbox smoother */
+.empty{opacity:0.95;transition:opacity 220ms var(--ease-quick)}
+.lightbox{display:flex;opacity:0;pointer-events:none;transition:opacity 240ms var(--ease-medium)}
+.lightbox.show{opacity:1;pointer-events:auto}
+.lightbox img{max-width:92vw;max-height:86vh;border-radius:8px;box-shadow:0 18px 50px rgba(0,0,0,0.7)}
+
+/* Subtle hover on delete */
+.delete-photo{transition:color 180ms ease}
+.delete-photo:hover{color:var(--orange)}
+
+/* Responsive niceties */
+@media (prefers-reduced-motion: reduce){*{transition:none!important}a,button{transition:none!important}}
+
+/* Helper utility: center content areas */
+.centered{display:flex;align-items:center;justify-content:center}
+
+/* Additional mobile and platform adjustments */
+@media (max-width:900px){
+  .hero{flex-direction:column;padding:36px 5%}
+  .hero-art{display:none}
+  .hero h1{font-size:clamp(28px,9vw,46px)}
+}
+
+.platform-mobile .button{padding:14px 20px;font-size:15px;border-radius:10px}
+.platform-mobile .upload-button{min-height:var(--touch-size,48px);display:inline-flex;align-items:center}
+.platform-mobile .photo-grid{grid-template-columns:repeat(2,1fr)}
+
+.photo-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));align-items:start}
+.photo-card img{height:160px;object-fit:cover}
+
+.platform-windows body{scrollbar-width:auto}
+.platform-windows .topbar{height:72px}
+.platform-windows nav a{font-weight:700}
+
+/* background utility classes (apply to <body>) */
+.bg-forest{background-image: radial-gradient(800px 400px at 85% 10%, rgba(201,243,29,0.06), transparent 30%), radial-gradient(600px 300px at 10% 80%, rgba(255,107,53,0.04), transparent 30%)}
+.bg-deep{background-image: linear-gradient(180deg, rgba(6,10,14,0.5), rgba(10,12,14,0.9))}

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Multiplayer — CODM Vault</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="design-overrides.css" />
+</head>
+<body data-mode="multiplayer">
+  <script>(function(){try{const ua=navigator.userAgent||''; if(/Win/.test(ua)) document.body.classList.add('platform-windows'); if(('ontouchstart' in window)||navigator.maxTouchPoints>0) document.body.classList.add('platform-mobile');}catch(e){} })();</script>
+  <header class="topbar">
+    <a class="brand" href="index.html"><span class="brand-mark">C</span><span>CODM <strong>VAULT</strong></span></a>
+    <nav><a href="index.html">Home</a><a class="active" href="multiplayer.html">Multiplayer</a><a href="br.html">BR</a><a href="dmz.html">DMZ</a></nav>
+  </header>
+
+  <main class="gallery-page">
+    <div class="gallery-header">
+      <div>
+        <p class="eyebrow">01 / COMBAT ARCHIVE</p>
+        <h1>Multiplayer</h1>
+        <p>Keep your best clutches, MVP moments and ranked victories in one place.</p>
+      </div>
+      <label class="button primary upload-button">＋ Add photos<input id="photoInput" type="file" accept="image/*" multiple hidden /></label>
+    </div>
+
+    <section class="upload-zone" id="dropZone">
+      <div class="upload-icon">↑</div>
+      <h2>Drop screenshots here</h2>
+      <p>or click to browse your device · JPG, PNG, WEBP</p>
+    </section>
+
+    <div class="gallery-tools">
+      <div><span id="photoCount">0 photos</span><span class="status-dot"></span><span>Stored locally</span></div>
+      <select id="sortPhotos" aria-label="Sort photos">
+        <option value="newest">Newest first</option>
+        <option value="oldest">Oldest first</option>
+        <option value="name">Name A–Z</option>
+      </select>
+    </div>
+    <div id="gallery" class="photo-grid"></div>
+  </main>
+  <div id="lightbox" class="lightbox"><button id="closeLightbox">×</button><img id="lightboxImage" alt="Selected screenshot" /></div>
+  <script src="script.js"></script>
+</body>
+</html>
