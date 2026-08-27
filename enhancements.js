@@ -17,3 +17,72 @@
   const setup = () => { applySettings(sessionUser()); const settingsButton = document.getElementById('settingsButton'); if (settingsButton) settingsButton.onclick = showSettings; };
   setup();
 })();
+
+(() => {
+  const maxImageBytes = 5 * 1024 * 1024;
+  const maxImageSide = 512;
+  const users = () => JSON.parse(localStorage.getItem('codm-vault-users') || '[]');
+  const currentUser = () => users().find(user => user.id === localStorage.getItem('codm-vault-session'));
+  const saveUsers = value => localStorage.setItem('codm-vault-users', JSON.stringify(value));
+  const notify = (message, kind = 'error') => { let box = document.getElementById('siteToast'); if (!box) { box = document.createElement('div'); box.id = 'siteToast'; document.body.append(box); } box.className = `site-toast ${kind} show`; box.textContent = message; clearTimeout(box.dismiss); box.dismiss = setTimeout(() => box.classList.remove('show'), 4500); };
+  const initials = user => (user?.profileName || user?.username || 'V')[0].toUpperCase();
+
+  function updateAvatars(user) {
+    if (!user) return;
+    document.querySelectorAll('.profile-trigger .avatar, .composer > .avatar').forEach(avatar => {
+      avatar.textContent = user.profileImage ? '' : initials(user);
+      avatar.style.backgroundImage = user.profileImage ? `url("${user.profileImage}")` : '';
+      avatar.classList.toggle('has-profile-image', Boolean(user.profileImage));
+    });
+    document.querySelectorAll('.post-card .post-meta').forEach(meta => {
+      const name = meta.querySelector('strong')?.textContent?.trim().toLowerCase();
+      if (name !== user.username?.trim().toLowerCase() && name !== user.profileName?.trim().toLowerCase()) return;
+      const avatar = meta.querySelector('.avatar');
+      if (!avatar) return;
+      avatar.textContent = user.profileImage ? '' : initials(user);
+      avatar.style.backgroundImage = user.profileImage ? `url("${user.profileImage}")` : '';
+      avatar.classList.toggle('has-profile-image', Boolean(user.profileImage));
+    });
+  }
+
+  function resizeImage(file) {
+    return new Promise((resolve, reject) => {
+      if (!file || !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) { reject(new Error('Choose a PNG, JPG, JPEG, or WEBP image.')); return; }
+      if (file.size > maxImageBytes) { reject(new Error('Profile image must be 5 MB or smaller.')); return; }
+      const image = new Image();
+      const reader = new FileReader();
+      reader.onerror = () => reject(new Error('The image could not be read.'));
+      reader.onload = () => { image.onerror = () => reject(new Error('The image could not be loaded.')); image.src = reader.result; };
+      image.onload = () => { const scale = Math.min(1, maxImageSide / Math.max(image.naturalWidth, image.naturalHeight)); const canvas = document.createElement('canvas'); canvas.width = Math.max(1, Math.round(image.naturalWidth * scale)); canvas.height = Math.max(1, Math.round(image.naturalHeight * scale)); const context = canvas.getContext('2d'); if (!context) { reject(new Error('Image processing is unavailable.')); return; } context.drawImage(image, 0, 0, canvas.width, canvas.height); resolve(canvas.toDataURL('image/jpeg', 0.82)); };
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function addPhotoControls(modal, user) {
+    if (modal.querySelector('#profilePhotoInput')) return;
+    const panel = modal.querySelector('.settings-panel');
+    const saveButton = modal.querySelector('#saveSettings');
+    const block = document.createElement('div');
+    block.className = 'profile-photo-controls';
+    block.innerHTML = '<strong>Profile photo</strong><div class="profile-photo-preview" id="profilePhotoPreview"></div><input id="profilePhotoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden><button class="button ghost" id="chooseProfilePhoto" type="button">Choose photo</button><button class="text-button" id="removeProfilePhoto" type="button">Remove photo</button><p class="photo-help">PNG, JPG, or WEBP · max 5 MB</p><p class="form-error" id="profilePhotoError"></p>';
+    panel.insertBefore(block, saveButton);
+    const preview = block.querySelector('#profilePhotoPreview');
+    let selectedImage = user.profileImage || '';
+    const drawPreview = () => { preview.textContent = selectedImage ? '' : initials(user); preview.style.backgroundImage = selectedImage ? `url("${selectedImage}")` : ''; block.querySelector('#removeProfilePhoto').hidden = !selectedImage; };
+    drawPreview();
+    block.querySelector('#chooseProfilePhoto').onclick = () => block.querySelector('#profilePhotoInput').click();
+    block.querySelector('#profilePhotoInput').onchange = async event => { try { selectedImage = await resizeImage(event.target.files[0]); drawPreview(); block.querySelector('#profilePhotoError').textContent = ''; } catch (error) { event.target.value = ''; block.querySelector('#profilePhotoError').textContent = error.message; } };
+    block.querySelector('#removeProfilePhoto').onclick = () => { selectedImage = ''; drawPreview(); };
+    saveButton.addEventListener('click', () => { const latestUser = currentUser(); if (!latestUser) return; const updated = { ...latestUser, profileImage: selectedImage || '' }; if (!selectedImage) delete updated.profileImage; try { saveUsers(users().map(item => item.id === latestUser.id ? updated : item)); updateAvatars(updated); } catch (error) { notify('Profile photo could not be saved. Browser storage may be full.'); } });
+  }
+
+  document.addEventListener('click', event => {
+    if (event.target.id === 'editProfile') {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      document.getElementById('settingsButton')?.click();
+    }
+    if (event.target.id === 'settingsButton') setTimeout(() => { const user = currentUser(); const modal = document.getElementById('settingsModal'); if (user && modal) addPhotoControls(modal, user); }, 0);
+  }, true);
+  updateAvatars(currentUser());
+})();
