@@ -9,6 +9,7 @@ const pendingLifetimeMs = 15 * 60 * 1000;
 const continueUrl = "https://codm-vault.vercel.app/";
 let pendingVerification = null;
 let pendingListener = null;
+let accountDraft = null;
 
 function showAuthMessage(message, kind = "error") {
   let toast = document.getElementById("siteToast");
@@ -32,6 +33,44 @@ function firebaseErrorMessage(error, action) {
 function showStep(step) {
   document.querySelectorAll("#authGate .auth-step").forEach(item => { item.hidden = item.dataset.step !== step; });
   document.getElementById(step === "username" ? "signupUsername" : "signupEmail")?.focus();
+}
+
+const encode = bytes => btoa(String.fromCharCode(...bytes));
+const createSalt = () => { const bytes = new Uint8Array(16); crypto.getRandomValues(bytes); return encode(bytes); };
+const hashSecret = async (secret, salt) => encode(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`${salt}:${secret}`))));
+
+function showPinStep() {
+  const gate = document.getElementById("authGate");
+  if (!gate) return;
+  let step = gate.querySelector('[data-step="pin"]');
+  if (!step) {
+    step = document.createElement("div");
+    step.className = "auth-step";
+    step.dataset.step = "pin";
+    step.innerHTML = '<p class="eyebrow">OPTIONAL SECURITY</p><h2>Set up a 4-digit login PIN?</h2><p class="modal-note">Use a PIN for quicker login.</p><button class="button primary auth-submit" id="setPinButton" type="button">Set PIN</button><button class="text-button" id="skipPinButton" type="button">Skip</button><p class="form-error" id="pinError"></p>';
+    gate.querySelector(".auth-panel").append(step);
+    step.querySelector("#setPinButton").onclick = async () => { const pin = prompt("Enter exactly 4 numeric digits."); if (!/^\d{4}$/.test(pin || "")) { showAuthMessage("PIN must contain exactly 4 numeric digits."); return; } const confirmation = prompt("Confirm your 4-digit PIN."); if (pin !== confirmation) { showAuthMessage("PINs do not match."); return; } await finishLocalAccount(pin); };
+    step.querySelector("#skipPinButton").onclick = () => finishLocalAccount();
+  }
+  gate.querySelectorAll(".auth-step").forEach(item => { item.hidden = item !== step; });
+}
+
+async function finishLocalAccount(pin) {
+  if (!accountDraft || !pendingVerification) return;
+  const users = JSON.parse(localStorage.getItem("codm-vault-users") || "[]");
+  const passwordSalt = createSalt();
+  const account = { ...accountDraft, passwordSalt, passwordHash: await hashSecret(accountDraft.password, passwordSalt) };
+  delete account.password;
+  if (pin) { account.pinSalt = createSalt(); account.pinHash = await hashSecret(pin, account.pinSalt); }
+  const existingIndex = users.findIndex(item => item.email?.trim().toLowerCase() === pendingVerification.email || item.firebaseUid === pendingVerification.firebaseUid);
+  if (existingIndex >= 0) users[existingIndex] = { ...users[existingIndex], ...account }; else users.push(account);
+  localStorage.setItem("codm-vault-users", JSON.stringify(users));
+  localStorage.setItem("codm-vault-session", account.id);
+  localStorage.removeItem("codm-vault-email-link"); localStorage.removeItem("codm-vault-pending-verification-id");
+  try { await deleteDoc(doc(db, pendingCollection, pendingVerification.id)); } catch (error) { console.error("Verified record cleanup error:", error); }
+  accountDraft = null; pendingVerification = null;
+  showAuthMessage("Account created with verified Firebase email.", "success");
+  setTimeout(() => window.location.reload(), 500);
 }
 
 function getVerificationIdFromUrl() {
@@ -65,6 +104,17 @@ function startPendingListener(verificationId, email) {
     if (record.email !== email || !record.firebaseUid) { showAuthMessage("The verified email does not match this signup request."); stopPendingListener(); return; }
     pendingVerification = { id: verificationId, email: record.email, firebaseUid: record.firebaseUid };
     stopPendingListener();
+    const existingAccounts = JSON.parse(localStorage.getItem("codm-vault-users") || "[]").filter(item => item.email?.trim().toLowerCase() === email);
+    if (existingAccounts.length) {
+      document.querySelectorAll("#authGate .auth-step").forEach(step => { step.hidden = step.dataset.step !== "login"; });
+      const loginInput = document.getElementById("loginId");
+      if (loginInput) loginInput.value = email;
+      pendingVerification = null;
+      localStorage.removeItem("codm-vault-email-link");
+      localStorage.removeItem("codm-vault-pending-verification-id");
+      showAuthMessage("An account already exists with this email. Please log in.", "success");
+      return;
+    }
     showAuthMessage("Email verified. Choose a username and password on this device.", "success");
     showStep("username");
   }, error => { console.error("Firestore verification listener error:", error); showAuthMessage(firebaseErrorMessage(error, "listen for email verification")); stopPendingListener(); });
@@ -128,18 +178,14 @@ function completeLaptopAccount() {
     if (!/^[a-zA-Z0-9_]{3,20}$/.test(username)) { showAuthMessage("Use 3-20 letters, numbers, or underscores."); return; }
     if (password.length < 8 || password !== confirm) { showAuthMessage("Passwords must match and be at least 8 characters."); return; }
     const users = JSON.parse(localStorage.getItem("codm-vault-users") || "[]");
+    const normalizedEmail = pendingVerification.email.trim().toLowerCase();
+    const emailMatches = users.filter(item => item.email?.trim().toLowerCase() === normalizedEmail);
+    if (emailMatches.some(item => item.firebaseUid && item.firebaseUid !== pendingVerification.firebaseUid)) { showAuthMessage("An account with this verified email already exists."); return; }
     const normalized = username.toLowerCase();
     if (users.some(item => item.username?.toLowerCase() === normalized && item.firebaseUid !== pendingVerification.firebaseUid)) { showAuthMessage("That username is already taken."); return; }
-    const existingIndex = users.findIndex(item => item.email === pendingVerification.email || item.firebaseUid === pendingVerification.firebaseUid);
-    const account = { id: existingIndex >= 0 ? users[existingIndex].id : `user-${Date.now()}`, email: pendingVerification.email, firebaseUid: pendingVerification.firebaseUid, emailVerified: true, username: normalized, password, profileName: username };
-    if (existingIndex >= 0) users[existingIndex] = { ...users[existingIndex], ...account }; else users.push(account);
-    localStorage.setItem("codm-vault-users", JSON.stringify(users));
-    localStorage.setItem("codm-vault-session", account.id);
-    localStorage.removeItem(emailStorageKey); localStorage.removeItem(pendingIdStorageKey);
-    try { await deleteDoc(doc(db, pendingCollection, pendingVerification.id)); } catch (error) { console.error("Verified record cleanup error:", error); }
-    pendingVerification = null;
-    showAuthMessage("Account created with verified Firebase email.", "success");
-    setTimeout(() => window.location.reload(), 500);
+    const existingIndex = users.findIndex(item => item.email?.trim().toLowerCase() === normalizedEmail || item.firebaseUid === pendingVerification.firebaseUid);
+    accountDraft = { id: existingIndex >= 0 ? users[existingIndex].id : `user-${Date.now()}`, email: normalizedEmail, firebaseUid: pendingVerification.firebaseUid, emailVerified: true, username: normalized, password, profileName: username };
+    showPinStep();
   }, true);
 }
 
