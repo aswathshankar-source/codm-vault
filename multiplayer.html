@@ -12,6 +12,7 @@
   <header class="topbar">
     <a class="brand" href="index.html"><span class="brand-mark">C</span><span>CODM <strong>VAULT</strong></span></a>
     <nav><a href="index.html">Home</a><a class="active" href="multiplayer.html">Multiplayer</a><a href="br.html">BR</a><a href="dmz.html">DMZ</a></nav><button class="profile-trigger" id="profileTrigger" type="button"><span class="avatar">V</span><span id="profileLabel">Log in</span></button>
+      <a class="community-link" href="community.html">Community</a>
   </header>
 
   <main class="gallery-page">
@@ -43,6 +44,6 @@
   </main>
   <div id="lightbox" class="lightbox"><button id="closeLightbox">×</button><img id="lightboxImage" alt="Selected screenshot" /></div>
   <div class="modal" id="profileModal" aria-hidden="true"><div class="modal-panel"><button class="modal-close" id="profileClose" type="button">x</button><div class="login-step" data-step="phone"><p class="eyebrow">01 / VERIFY YOUR NUMBER</p><h2>Join the vault</h2><p class="modal-note">Enter your mobile number to receive a one-time verification code.</p><label for="phoneInput">Mobile number</label><input id="phoneInput" type="tel" inputmode="tel" placeholder="+91 98765 43210" maxlength="16" /><p class="form-error" id="phoneError"></p><button class="button primary" id="sendOtpButton" type="button">Send OTP</button></div><div class="login-step" data-step="otp" hidden><p class="eyebrow">02 / CHECK YOUR PHONE</p><h2>Enter the code</h2><p class="modal-note">Use the six-digit code sent to <strong id="phonePreview"></strong>.</p><label for="otpInput">One-time password</label><input id="otpInput" type="text" inputmode="numeric" autocomplete="one-time-code" placeholder="000000" maxlength="6" /><p class="demo-note">Demo mode: your OTP is <strong>123456</strong>.</p><p class="form-error" id="otpError"></p><button class="button primary" id="verifyOtpButton" type="button">Verify number</button><button class="text-button" id="resendOtpButton" type="button">Resend code</button></div><div class="login-step" data-step="username" hidden><p class="eyebrow">03 / BUILD YOUR PROFILE</p><h2>Choose your name</h2><p class="modal-note">Pick the name your fireteam will see.</p><label for="usernameInput">Nickname</label><input id="usernameInput" type="text" placeholder="e.g. GhostRunner" maxlength="24" /><p class="nickname-note">Enter a nickname, not your real name.</p><p class="form-error" id="usernameError"></p><button class="button primary" id="loginButton" type="button">Enter vault</button></div></div></div>
-  <script src="script.js"></script>
+  <script src="script.js"></script><script src="enhancements.js"></script>
 </body>
 </html>
