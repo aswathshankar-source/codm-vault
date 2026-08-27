@@ -64,7 +64,7 @@
     const saveButton = modal.querySelector('#saveSettings');
     const block = document.createElement('div');
     block.className = 'profile-photo-controls';
-    block.innerHTML = '<strong>Profile photo</strong><div class="profile-photo-preview" id="profilePhotoPreview"></div><input id="profilePhotoInput" type="file" accept="image/png,image/jpeg,image/webp" hidden><button class="button ghost" id="chooseProfilePhoto" type="button">Choose photo</button><button class="text-button" id="removeProfilePhoto" type="button">Remove photo</button><p class="photo-help">PNG, JPG, or WEBP · max 5 MB</p><p class="form-error" id="profilePhotoError"></p>';
+    block.innerHTML = '<strong>Profile photo</strong><div class="profile-photo-preview" id="profilePhotoPreview"></div><input id="profilePhotoInput" type="file" accept="image/*" hidden><button class="button ghost" id="chooseProfilePhoto" type="button">Choose photo</button><button class="text-button" id="removeProfilePhoto" type="button">Remove photo</button><p class="photo-help">PNG, JPG, or WEBP · max 5 MB</p><p class="form-error" id="profilePhotoError"></p>';
     panel.insertBefore(block, saveButton);
     const preview = block.querySelector('#profilePhotoPreview');
     let selectedImage = user.profileImage || '';
