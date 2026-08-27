@@ -1,162 +1,17 @@
-const mode = document.body && document.body.dataset && document.body.dataset.mode;
-if (mode) {
-  const DB_NAME = "codm-vault";
-  const STORE = "photos";
-  let photos = [];
-  let objectURLs = [];
-
-  function safeEl(id) {
-    return document.getElementById(id) || null;
-  }
-
-  const request = indexedDB.open(DB_NAME, 1);
-  request.onupgradeneeded = event => {
-    const db = event.target.result;
-    if (!db.objectStoreNames.contains(STORE)) {
-      db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
-    }
-  };
-  request.onerror = event => {
-    console.error('IndexedDB open error:', event.target.error);
-  };
-
-  request.onsuccess = event => {
-    window.vaultDB = event.target.result;
-    loadPhotos();
-  };
-
-  const savePhoto = photo => {
-    if (!window.vaultDB) return;
-    try {
-      const transaction = vaultDB.transaction(STORE, "readwrite");
-      const store = transaction.objectStore(STORE);
-      store.add(photo);
-      transaction.oncomplete = loadPhotos;
-      transaction.onerror = e => console.error('Transaction error saving photo:', e.target.error);
-    } catch (e) {
-      console.error('savePhoto error', e);
-    }
-  };
-
-  function loadPhotos() {
-    if (!window.vaultDB) return;
-    const transaction = vaultDB.transaction(STORE, "readonly");
-    const getAll = transaction.objectStore(STORE).getAll();
-    getAll.onsuccess = () => {
-      photos = (getAll.result || []).filter(photo => photo.mode === mode);
-      renderPhotos();
-    };
-    getAll.onerror = e => console.error('Error reading photos:', e.target.error);
-  }
-
-  function addFiles(files) {
-    if (!files) return;
-    [...files].filter(file => file && file.type && file.type.startsWith("image/")).forEach(file => {
-      savePhoto({ mode, name: file.name, type: file.type, created: Date.now(), blob: file });
-    });
-  }
-
-  function revokeObjectURLs() {
-    objectURLs.forEach(u => {
-      try { URL.revokeObjectURL(u); } catch (e) {}
-    });
-    objectURLs = [];
-  }
-
-  function renderPhotos() {
-    const gallery = safeEl("gallery");
-    const count = safeEl("photoCount");
-    const sortEl = safeEl("sortPhotos");
-    if (!gallery || !count || !sortEl) return;
-
-    const sort = sortEl.value;
-    const sorted = [...photos].sort((a, b) => {
-      if (sort === "oldest") return a.created - b.created;
-      if (sort === "name") return a.name.localeCompare(b.name);
-      return b.created - a.created;
-    });
-
-    count.textContent = `${photos.length} ${photos.length === 1 ? "photo" : "photos"}`;
-
-    revokeObjectURLs();
-
-    if (!sorted.length) {
-      gallery.innerHTML = `<div class="empty">No screenshots here yet.<br>Upload your first combat memory above.</div>`;
-      return;
-    }
-
-    gallery.innerHTML = sorted.map(photo => {
-      const shortName = photo.name && photo.name.length > 25 ? photo.name.slice(0, 25) + "…" : (photo.name || 'untitled');
-      return `
-      <article class="photo-card">
-        <img data-id="${photo.id}" alt="${(photo.name||'').replace(/"/g,'')}">
-        <div class="photo-info">
-          <span>${shortName}</span>
-          <button class="delete-photo" data-delete="${photo.id}" title="Delete photo">×</button>
-        </div>
-      </article>
-    `;
-    }).join("");
-
-    gallery.querySelectorAll("img").forEach((image, idx) => {
-      const photo = sorted[idx];
-      try {
-        const u = URL.createObjectURL(photo.blob);
-        objectURLs.push(u);
-        image.src = u;
-      } catch (e) {
-        console.error('Error creating object URL for photo', e);
-      }
-      image.onclick = () => {
-        const lbImg = safeEl('lightboxImage');
-        const lb = safeEl('lightbox');
-        if (lbImg) lbImg.src = image.src;
-        if (lb) lb.classList.add('show');
-      };
-    });
-
-    gallery.querySelectorAll("[data-delete]").forEach(button => {
-      button.onclick = () => {
-        if (!confirm("Delete this photo?")) return;
-        if (!window.vaultDB) return;
-        const transaction = vaultDB.transaction(STORE, "readwrite");
-        transaction.objectStore(STORE).delete(Number(button.dataset.delete));
-        transaction.oncomplete = loadPhotos;
-        transaction.onerror = e => console.error('Delete transaction error', e.target.error);
-      };
-    });
-  }
-
-  // Wire up UI if elements exist
-  const photoInput = safeEl('photoInput');
-  if (photoInput) photoInput.onchange = event => addFiles(event.target.files);
-  const sortPhotos = safeEl('sortPhotos');
-  if (sortPhotos) sortPhotos.onchange = renderPhotos;
-
-  const dropZone = safeEl('dropZone');
-  if (dropZone) {
-    dropZone.onclick = event => {
-      if (event.target === dropZone || event.target.closest('.upload-zone')) {
-        if (photoInput) photoInput.click();
-      }
-    };
-    ['dragenter', 'dragover'].forEach(eventName => dropZone.addEventListener(eventName, event => {
-      event.preventDefault();
-      dropZone.classList.add('dragging');
-    }));
-    ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, event => {
-      event.preventDefault();
-      dropZone.classList.remove('dragging');
-    }));
-    dropZone.addEventListener('drop', event => addFiles(event.dataTransfer.files));
-  }
-
-  const closeLightbox = safeEl('closeLightbox');
-  const lightbox = safeEl('lightbox');
-  if (closeLightbox && lightbox) {
-    closeLightbox.onclick = () => lightbox.classList.remove('show');
-    lightbox.onclick = event => { if (event.target.id === 'lightbox') event.currentTarget.classList.remove('show'); };
-  }
-
-  window.addEventListener('beforeunload', revokeObjectURLs);
-}
+const pageMode=document.body.dataset.mode||'home';
+const imageByMode={home:'https://images.unsplash.com/photo-1542751371-adc38448a05e?auto=format&fit=crop&w=900&q=80',multiplayer:'https://images.unsplash.com/photo-1542751110-97427bbecf20?auto=format&fit=crop&w=900&q=80',br:'https://images.unsplash.com/photo-1511512578047-dfb367046420?auto=format&fit=crop&w=900&q=80',dmz:'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=900&q=80'};
+const defaultPosts=[{id:'seed-1',user:'RaptorSix',mode:'multiplayer',text:'Three piece, last second capture. The lobby went silent.',likes:128,comments:14,image:imageByMode.multiplayer},{id:'seed-2',user:'NovaDrop',mode:'br',text:'Final circle pressure makes the best screenshots.',likes:94,comments:8,image:imageByMode.br},{id:'seed-3',user:'MakoActual',mode:'dmz',text:'Extracted with the rare blueprint and one plate left.',likes:76,comments:11,image:imageByMode.dmz}];
+const getPosts=()=>JSON.parse(localStorage.getItem('codm-vault-posts')||'null')||defaultPosts;const currentUser=()=>localStorage.getItem('codm-vault-user')||'';
+function renderProfile(){const label=document.getElementById('profileLabel');if(label)label.textContent=currentUser()||'Log in';const avatar=document.querySelector('.profile-trigger .avatar');if(avatar)avatar.textContent=(currentUser()[0]||'V').toUpperCase()}
+function renderFeed(){const feed=document.getElementById('feed');if(!feed)return;const posts=getPosts().filter(post=>pageMode==='home'||post.mode===pageMode);feed.innerHTML=posts.map(post=>`<article class="post-card"><img class="post-image" src="${post.image}" alt="${post.mode} community moment"><div class="post-body"><div class="post-meta"><span class="avatar">${post.user[0]}</span><strong>${post.user}</strong><span>/ ${post.mode}</span></div><p>${post.text}</p><div class="post-actions"><button class="like-post ${post.liked?'liked':''}" data-id="${post.id}">${post.liked?'Liked':'Like'} ${post.likes}</button><button class="comment-post" data-id="${post.id}">Comment ${post.comments}</button><button class="share-post" data-id="${post.id}">Share</button></div></div></article>`).join('');feed.querySelectorAll('.like-post').forEach(button=>button.onclick=()=>{const posts=getPosts(),post=posts.find(item=>String(item.id)===button.dataset.id);if(post&&!post.liked){post.likes++;post.liked=true;localStorage.setItem('codm-vault-posts',JSON.stringify(posts));renderFeed()}});feed.querySelectorAll('.comment-post').forEach(button=>button.onclick=()=>{if(!currentUser()){openProfile();return}const comment=prompt('Add a comment');if(comment){const posts=getPosts(),post=posts.find(item=>String(item.id)===button.dataset.id);post.comments++;localStorage.setItem('codm-vault-posts',JSON.stringify(posts));renderFeed()}});feed.querySelectorAll('.share-post').forEach(button=>button.onclick=()=>{navigator.clipboard?.writeText(location.href);button.textContent='Copied link'})}
+function openProfile(){const modal=document.getElementById('profileModal');if(!modal)return;modal.classList.add('open');modal.setAttribute('aria-hidden','false');showStep('phone');document.getElementById('phoneInput')?.focus()}
+function closeProfile(){const modal=document.getElementById('profileModal');if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true')}}
+function showStep(step){document.querySelectorAll('.login-step').forEach(item=>item.hidden=item.dataset.step!==step)}
+function setError(id,message){const element=document.getElementById(id);if(element)element.textContent=message}
+function wireSocial(){renderProfile();renderFeed();document.getElementById('profileTrigger')?.addEventListener('click',openProfile);document.getElementById('profileClose')?.addEventListener('click',closeProfile);document.getElementById('profileModal')?.addEventListener('click',event=>{if(event.target.id==='profileModal')closeProfile()});document.getElementById('sendOtpButton')?.addEventListener('click',()=>{const phone=document.getElementById('phoneInput').value.replace(/\D/g,'');if(phone.length<10){setError('phoneError','Enter a valid mobile number.');return}document.getElementById('phonePreview').textContent=document.getElementById('phoneInput').value;setError('phoneError','');showStep('otp');document.getElementById('otpInput').focus()});document.getElementById('resendOtpButton')?.addEventListener('click',()=>{setError('otpError','A new demo code was sent: 123456.')});document.getElementById('verifyOtpButton')?.addEventListener('click',()=>{const otp=document.getElementById('otpInput').value.trim();if(otp!=='123456'){setError('otpError','That code is not valid. Try 123456 in demo mode.');return}setError('otpError','');showStep('username');document.getElementById('usernameInput').focus()});document.getElementById('loginButton')?.addEventListener('click',()=>{const name=document.getElementById('usernameInput').value.trim();if(name.length<3){setError('usernameError','Choose a nickname with at least 3 characters.');return}localStorage.setItem('codm-vault-user',name);closeProfile();renderProfile()});document.getElementById('postButton')?.addEventListener('click',()=>{const input=document.getElementById('postText'),text=input?.value.trim();if(!text){input?.focus();return}if(!currentUser()){openProfile();return}const selected=document.getElementById('postMode')?.value||pageMode,mode=selected==='home'?'multiplayer':selected,posts=getPosts();posts.unshift({id:Date.now(),user:currentUser(),mode,text,likes:0,comments:0,image:imageByMode[mode]});localStorage.setItem('codm-vault-posts',JSON.stringify(posts));input.value='';renderFeed()})}
+const DB_NAME='codm-vault',STORE='photos';let vaultDB,photos=[],objectURLs=[];const safeEl=id=>document.getElementById(id);
+function renderPhotos(){const gallery=safeEl('gallery'),count=safeEl('photoCount'),sortEl=safeEl('sortPhotos');if(!gallery||!count||!sortEl)return;const sorted=[...photos].sort((a,b)=>sortEl.value==='oldest'?a.created-b.created:sortEl.value==='name'?a.name.localeCompare(b.name):b.created-a.created);count.textContent=`${photos.length} ${photos.length===1?'photo':'photos'}`;objectURLs.forEach(url=>URL.revokeObjectURL(url));objectURLs=[];if(!sorted.length){gallery.innerHTML='<div class="empty">No screenshots here yet.<br>Upload your first combat memory above.</div>';return}gallery.innerHTML=sorted.map(photo=>`<article class="photo-card"><img data-id="${photo.id}" alt="${photo.name||'combat screenshot'}"><div class="photo-info"><span>${(photo.name||'untitled').slice(0,25)}</span><button class="delete-photo" data-delete="${photo.id}" title="Delete photo">x</button></div></article>`).join('');gallery.querySelectorAll('img').forEach((image,index)=>{const url=URL.createObjectURL(sorted[index].blob);objectURLs.push(url);image.src=url;image.onclick=()=>{safeEl('lightboxImage').src=url;safeEl('lightbox').classList.add('show')}});gallery.querySelectorAll('[data-delete]').forEach(button=>button.onclick=()=>{if(confirm('Delete this photo?')){const tx=vaultDB.transaction(STORE,'readwrite');tx.objectStore(STORE).delete(Number(button.dataset.delete));tx.oncomplete=loadPhotos}})}
+function loadPhotos(){const request=vaultDB.transaction(STORE,'readonly').objectStore(STORE).getAll();request.onsuccess=()=>{photos=request.result.filter(photo=>photo.mode===pageMode);renderPhotos()}}
+function addFiles(files){[...files].filter(file=>file.type.startsWith('image/')).forEach(file=>{const tx=vaultDB.transaction(STORE,'readwrite');tx.objectStore(STORE).add({mode:pageMode,name:file.name,type:file.type,created:Date.now(),blob:file});tx.oncomplete=loadPhotos})}
+function wireGallery(){if(!safeEl('gallery'))return;const request=indexedDB.open(DB_NAME,1);request.onupgradeneeded=event=>{if(!event.target.result.objectStoreNames.contains(STORE))event.target.result.createObjectStore(STORE,{keyPath:'id',autoIncrement:true})};request.onsuccess=event=>{vaultDB=event.target.result;loadPhotos()};safeEl('photoInput').onchange=event=>addFiles(event.target.files);safeEl('sortPhotos').onchange=renderPhotos;const drop=safeEl('dropZone');drop.onclick=()=>safeEl('photoInput').click();['dragenter','dragover'].forEach(name=>drop.addEventListener(name,event=>{event.preventDefault();drop.classList.add('dragging')}));drop.addEventListener('dragleave',()=>drop.classList.remove('dragging'));drop.addEventListener('drop',event=>{event.preventDefault();drop.classList.remove('dragging');addFiles(event.dataTransfer.files)});safeEl('closeLightbox').onclick=()=>safeEl('lightbox').classList.remove('show')}
+wireSocial();wireGallery();
